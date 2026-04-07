@@ -1,0 +1,73 @@
+# =============================================================================
+# RabbitMQ 3.13 — Broker de messages (communication asynchrone)
+# Le backend publie des événements (ProductCreated, PriceChanged...)
+# Le service Notifications consomme ces événements
+# Management UI accessible via port-forward (15672) pour le monitoring
+# =============================================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: collectorshop
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3.13-management-alpine    # Version avec UI de management
+          ports:
+            - containerPort: 5672      # Port AMQP (messages)
+            - containerPort: 15672     # Port Management UI (dashboard web)
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              value: collector
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-secret
+                  key: password
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          # Vérifie que RabbitMQ est prêt à recevoir des connexions
+          readinessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            initialDelaySeconds: 30
+            periodSeconds: 15
+
+---
+# Service — les autres pods utilisent "rabbitmq" comme hostname
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: collectorshop
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+    - name: management
+      port: 15672
+      targetPort: 15672
+  type: ClusterIP
