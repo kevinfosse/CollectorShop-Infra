@@ -1,3 +1,4 @@
+---
 # ClusterIssuer pour cert-manager
 # Demande automatiquement des certificats TLS à Let's Encrypt
 apiVersion: cert-manager.io/v1

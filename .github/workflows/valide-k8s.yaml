@@ -1,11 +1,12 @@
+---
 name: Validation des fichiers Kubernetes
 
 # Se déclenche à chaque fois que tu pousses du code ou fais une Pull Request
-on:
+"on":
   push:
-    branches: [ "main", "master", "develop" ]
+    branches: ["main", "master", "develop"]
   pull_request:
-    branches: [ "main", "master", "develop" ]
+    branches: ["main", "master", "develop"]
 
 jobs:
   validate-yaml:
@@ -23,7 +24,7 @@ jobs:
         with:
           file_or_dir: .
 
-      # 3. Vérifie que les fichiers sont valides pour ta version exacte de Kubernetes (1.34.6)
+      # 3. Vérifie la validité pour Kubernetes 1.34.6
       - name: Validation Kubernetes (Kubeconform)
         uses: docker://ghcr.io/yannh/kubeconform:latest
         with:
