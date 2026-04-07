@@ -1,0 +1,45 @@
+---
+# =============================================================================
+# Service Notifications — Worker Service .NET
+# Consomme les evenements RabbitMQ
+# (ProductCreated, PriceChanged, StatusChanged)
+# Pas de port HTTP, Service ou Ingress: c'est un worker pur
+# =============================================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: collectorshop-notifications
+  namespace: collectorshop
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: collectorshop-notifications
+  template:
+    metadata:
+      labels:
+        app: collectorshop-notifications
+    spec:
+      imagePullSecrets:
+        - name: ghcr-regcred
+      containers:
+        - name: collectorshop-notifications
+          image: ghcr.io/kevinfosse/collectorshop-notifications:latest
+          env:
+            - name: RabbitMQ__Host
+              value: "rabbitmq"
+            - name: RabbitMQ__Username
+              value: "collector"
+            - name: RabbitMQ__Password
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-secret
+                  key: password
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
