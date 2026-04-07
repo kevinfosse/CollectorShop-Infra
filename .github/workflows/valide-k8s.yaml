@@ -24,13 +24,21 @@ jobs:
         with:
           file_or_dir: .
 
-      # 3. Vérifie la validité pour Kubernetes 1.34.6
+      # 3. Vérifie la validité des manifests Kubernetes
       - name: Validation Kubernetes (Kubeconform)
-        uses: docker://ghcr.io/yannh/kubeconform:latest
-        with:
-          summary: true
-          kubernetes-version: "1.34.6"
-          ignore-missing-schemas: true
+        run: |
+          curl -sSL \
+            https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz \
+            -o kubeconform.tar.gz
+          tar -xzf kubeconform.tar.gz kubeconform
+          chmod +x kubeconform
+          ./kubeconform \
+            -summary \
+            -kubernetes-version 1.34.6 \
+            -ignore-missing-schemas \
+            backend.yaml frontend.yaml hpa.yaml mssql.yaml \
+            notifications.yaml rabbitmq.yaml namespace.yaml \
+            cluster-issuer.yaml
 
       - name: Scan de sécurité Kubernetes (Trivy)
         uses: aquasecurity/trivy-action@master
