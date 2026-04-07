@@ -1,10 +1,12 @@
+---
 name: Validation des fichiers Kubernetes
 
-on:
+# Se déclenche à chaque fois que tu pousses du code ou fais une Pull Request
+"on":
   push:
-    branches: [ "main", "master", "develop" ]
+    branches: ["main", "master", "develop"]
   pull_request:
-    branches: [ "main", "master", "develop" ]
+    branches: ["main", "master", "develop"]
 
 jobs:
   validate-yaml:
@@ -22,9 +24,33 @@ jobs:
         with:
           file_or_dir: .
 
-      # 3. Vérifie que les fichiers sont valides pour Kubernetes
+      # 3. Vérifie la validité des manifests Kubernetes
       - name: Validation Kubernetes (Kubeconform)
-        uses: yannh/kubeconform-action@v2
+        run: |
+          KUBECONFORM_URL="https://github.com/yannh/kubeconform/releases/latest/download/"
+          KUBECONFORM_URL="${KUBECONFORM_URL}kubeconform-linux-amd64.tar.gz"
+          curl -sSL "$KUBECONFORM_URL" -o kubeconform.tar.gz
+          tar -xzf kubeconform.tar.gz kubeconform
+          chmod +x kubeconform
+          mapfile -t manifests < <(
+            git ls-files '*.yaml' '*.yml' | grep -v '^.github/workflows/'
+          )
+          if [ ${#manifests[@]} -eq 0 ]; then
+            echo "Aucun manifest YAML à valider."
+            exit 0
+          fi
+          ./kubeconform \
+            -summary \
+            -kubernetes-version 1.34.6 \
+            -ignore-missing-schemas \
+            "${manifests[@]}"
+
+      - name: Scan de sécurité Kubernetes (Trivy)
+        uses: aquasecurity/trivy-action@master
         with:
-          kubernetes_version: "1.34.6" 
-          ignore_missing_schemas: true
+          scan-type: 'config'
+          hide-progress: false
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
