@@ -38,7 +38,7 @@ spec:
             capabilities:
               drop: ["ALL"]
           ports:
-            - containerPort: 80
+            - containerPort: 8080
           volumeMounts:
             - name: nginx-cache
               mountPath: /var/cache/nginx
@@ -56,13 +56,13 @@ spec:
           readinessProbe:
             httpGet:
               path: /
-              port: 80
+              port: 8080
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
             httpGet:
               path: /
-              port: 80
+              port: 8080
             initialDelaySeconds: 10
             periodSeconds: 10
       volumes:
@@ -84,7 +84,7 @@ spec:
     app: collectorshop-front
   ports:
     - port: 80
-      targetPort: 80
+      targetPort: 8080
   type: ClusterIP
 
 ---

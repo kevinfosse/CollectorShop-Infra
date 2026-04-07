@@ -47,7 +47,7 @@ spec:
           image: mcr.microsoft.com/mssql/server:2022-latest
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
+            readOnlyRootFilesystem: false
             capabilities:
               drop: ["ALL"]
           ports:
