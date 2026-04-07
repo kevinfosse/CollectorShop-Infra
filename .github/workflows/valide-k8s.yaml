@@ -27,9 +27,9 @@ jobs:
       # 3. Vérifie la validité des manifests Kubernetes
       - name: Validation Kubernetes (Kubeconform)
         run: |
-          curl -sSL \
-            https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz \
-            -o kubeconform.tar.gz
+          KUBECONFORM_URL="https://github.com/yannh/kubeconform/releases/latest/download/"
+          KUBECONFORM_URL="${KUBECONFORM_URL}kubeconform-linux-amd64.tar.gz"
+          curl -sSL "$KUBECONFORM_URL" -o kubeconform.tar.gz
           tar -xzf kubeconform.tar.gz kubeconform
           chmod +x kubeconform
           ./kubeconform \
