@@ -21,13 +21,32 @@ spec:
       labels:
         app: rabbitmq
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: rabbitmq
           # Version avec UI de management
           image: rabbitmq:3.13-management-alpine
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: 5672      # Port AMQP (messages)
             - containerPort: 15672     # Port Management UI (dashboard web)
+          volumeMounts:
+            - name: rabbitmq-data
+              mountPath: /var/lib/rabbitmq
+            - name: rabbitmq-logs
+              mountPath: /var/log/rabbitmq
+            - name: rabbitmq-tmp
+              mountPath: /tmp
           env:
             - name: RABBITMQ_DEFAULT_USER
               value: collector
@@ -54,6 +73,13 @@ spec:
               command: ["rabbitmq-diagnostics", "-q", "ping"]
             initialDelaySeconds: 30
             periodSeconds: 15
+      volumes:
+        - name: rabbitmq-data
+          emptyDir: {}
+        - name: rabbitmq-logs
+          emptyDir: {}
+        - name: rabbitmq-tmp
+          emptyDir: {}
 
 ---
 # Service — les autres pods utilisent "rabbitmq" comme hostname
