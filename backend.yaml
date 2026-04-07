@@ -27,13 +27,28 @@ spec:
       labels:
         app: collectorshop-back
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
       imagePullSecrets:
         - name: ghcr-regcred     # Secret pour puller l'image depuis ghcr.io
       containers:
         - name: collectorshop-back
           image: ghcr.io/kevinfosse/collectorshop-back:latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: 8080
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           env:
             - name: ASPNETCORE_ENVIRONMENT
               value: "Production"
@@ -77,6 +92,9 @@ spec:
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
 
 ---
 # Service ClusterIP — adresse stable pour le backend
