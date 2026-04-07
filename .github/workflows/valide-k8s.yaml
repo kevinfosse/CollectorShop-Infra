@@ -1,0 +1,30 @@
+name: Validation des fichiers Kubernetes
+
+on:
+  push:
+    branches: [ "main", "master", "develop" ]
+  pull_request:
+    branches: [ "main", "master", "develop" ]
+
+jobs:
+  validate-yaml:
+    name: Vérification YAML & Kubernetes
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Récupère le code de ton dépôt
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      # 2. Vérifie la syntaxe YAML de base
+      - name: YAML Lint
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: .
+
+      # 3. Vérifie que les fichiers sont valides pour Kubernetes
+      - name: Validation Kubernetes (Kubeconform)
+        uses: yannh/kubeconform-action@v2
+        with:
+          kubernetes_version: "1.34.6" 
+          ignore_missing_schemas: true
