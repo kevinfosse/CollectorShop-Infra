@@ -1,3 +1,4 @@
+---
 # =============================================================================
 # Frontend Angular — Application web servie par Nginx
 # 1 replica suffit (contenu statique, très léger)

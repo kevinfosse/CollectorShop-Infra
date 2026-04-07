@@ -1,3 +1,4 @@
+---
 # =============================================================================
 # Backend ASP.NET Core — API REST de CollectorShop
 # 2 replicas pour la haute disponibilité (si 1 tombe, l'autre répond)
@@ -19,7 +20,8 @@ spec:
     type: RollingUpdate          # Mise à jour progressive (zéro downtime)
     rollingUpdate:
       maxUnavailable: 0          # Jamais 0 pod disponible pendant l'update
-      maxSurge: 1                # Crée 1 nouveau pod avant de supprimer l'ancien
+      # Crée 1 nouveau pod avant de supprimer l'ancien
+      maxSurge: 1
   template:
     metadata:
       labels:
@@ -39,7 +41,9 @@ spec:
               value: "http://+:8080"
             # Connection string : "mssql" est le nom du Service K8s SQL Server
             - name: ConnectionStrings__DefaultConnection
-              value: "Server=mssql;Database=CollectorShop;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True"
+              value: >-
+                Server=mssql;Database=CollectorShop;User
+                Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
             # RabbitMQ : "rabbitmq" est le nom du Service K8s RabbitMQ
             - name: RabbitMQ__Host
               value: "rabbitmq"
@@ -99,7 +103,8 @@ metadata:
   name: collectorshop-back
   namespace: collectorshop
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod      # Utilise notre ClusterIssuer
+    # Utilise notre ClusterIssuer
+    cert-manager.io/cluster-issuer: letsencrypt-prod
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
@@ -107,9 +112,11 @@ spec:
   tls:
     - hosts:
         - api.collectorcube.duckdns.org
-      secretName: collectorshop-back-tls    # cert-manager stocke le certificat ici
+      # cert-manager stocke le certificat ici
+      secretName: collectorshop-back-tls
   rules:
-    - host: api.collectorcube.duckdns.org   # Quand quelqu'un accède à ce domaine...
+    # Quand quelqu'un accède à ce domaine...
+    - host: api.collectorcube.duckdns.org
       http:
         paths:
           - path: /
