@@ -1,3 +1,4 @@
+---
 # =============================================================================
 # RabbitMQ 3.13 — Broker de messages (communication asynchrone)
 # Le backend publie des événements (ProductCreated, PriceChanged...)
@@ -22,7 +23,8 @@ spec:
     spec:
       containers:
         - name: rabbitmq
-          image: rabbitmq:3.13-management-alpine    # Version avec UI de management
+          # Version avec UI de management
+          image: rabbitmq:3.13-management-alpine
           ports:
             - containerPort: 5672      # Port AMQP (messages)
             - containerPort: 15672     # Port Management UI (dashboard web)
