@@ -34,8 +34,8 @@ spec:
     metadata:
       labels:
         app: mssql
-    annotations:
-      trivy.aquasecurity.github.io/ignore-vuln: "KSV-0001"
+      annotations:
+        trivy.aquasecurity.github.io/ignore-vuln: "CVE-2026-21233"
     spec:
       securityContext:
         runAsNonRoot: true
