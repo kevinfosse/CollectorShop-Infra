@@ -45,16 +45,12 @@ spec:
       containers:
         - name: mssql
           image: mcr.microsoft.com/mssql/server:2022-latest
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop: ["ALL"]
+          # Le securityContext au niveau du conteneur a été allégé 
+          # pour permettre à MSSQL de s'exécuter correctement.
           ports:
             - containerPort: 1433
           volumeMounts:
             - name: mssql-storage
-              # Dossier ou SQL Server stocke ses donnees
               mountPath: /var/opt/mssql
             - name: mssql-tmp
               mountPath: /tmp
@@ -67,19 +63,19 @@ spec:
                   name: mssql-secret
                   key: sa-password
           resources:
-            requests:              # Minimum garanti
-              memory: "512Mi"
-              cpu: "200m"
-            limits:                # Maximum autorisé
-              memory: "1Gi"
+            requests:              
+              memory: "2Gi"        # Minimum vital pour MSSQL
               cpu: "500m"
+            limits:                
+              memory: "2Gi"        # Empêche MSSQL de dépasser cette limite
+              cpu: "1000m"
       volumes:
         - name: mssql-storage
           persistentVolumeClaim:
             claimName: mssql-data
         - name: mssql-tmp
           emptyDir: {}
-
+          
 ---
 # Service — adresse stable pour trouver SQL Server
 # Le backend utilise "Server=mssql" dans sa connection string
