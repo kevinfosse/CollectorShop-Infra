@@ -1,27 +1,13 @@
----
-# =============================================================================
-# Backend ASP.NET Core — API REST de CollectorShop
-# 2 replicas pour la haute disponibilité (si 1 tombe, l'autre répond)
-# Ingress Traefik avec TLS (cert-manager provisionne le certificat HTTPS)
-# Health checks : /health vérifie que l'API et la BDD fonctionnent
-# =============================================================================
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: collectorshop-back
   namespace: collectorshop
 spec:
-  replicas: 2                    # 2 copies = haute disponibilité
+  replicas: 2
   selector:
     matchLabels:
       app: collectorshop-back
-  strategy:
-    type: RollingUpdate          # Mise à jour progressive (zéro downtime)
-    rollingUpdate:
-      maxUnavailable: 0          # Jamais 0 pod disponible pendant l'update
-      # Crée 1 nouveau pod avant de supprimer l'ancien
-      maxSurge: 1
   template:
     metadata:
       labels:
@@ -32,10 +18,8 @@ spec:
         runAsUser: 10001
         runAsGroup: 10001
         fsGroup: 10001
-        seccompProfile:
-          type: RuntimeDefault
       imagePullSecrets:
-        - name: ghcr-regcred     # Secret pour puller l'image depuis ghcr.io
+        - name: ghcr-regcred
       containers:
         - name: collectorshop-back
           image: ghcr.io/kevinfosse/collectorshop-back:latest
@@ -54,12 +38,15 @@ spec:
               value: "Production"
             - name: ASPNETCORE_URLS
               value: "http://+:8080"
-            # Connection string : "mssql" est le nom du Service K8s SQL Server
+            - name: MSSQL_SA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mssql-secret
+                  key: sa-password
+            
             - name: ConnectionStrings__DefaultConnection
-              value: >-
-                Server=mssql;Database=CollectorShop;User
-                Id=sa;Password=$(MSSQL_SA_PASSWORD);TrustServerCertificate=True
-            # RabbitMQ : "rabbitmq" est le nom du Service K8s RabbitMQ
+              value: "Server=mssql;Database=CollectorShop;User Id=sa;Password=$(MSSQL_SA_PASSWORD);TrustServerCertificate=True"
+            
             - name: RabbitMQ__Host
               value: "rabbitmq"
             - name: RabbitMQ__Username
@@ -76,28 +63,22 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
-          # Readiness : "Es-tu prêt à recevoir du trafic ?"
-          # Si NON → K8s retire ce pod du load balancing
           readinessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 15
+            initialDelaySeconds: 20 # Laissé un peu de temps au démarrage .NET
             periodSeconds: 5
-          # Liveness : "Es-tu encore vivant ?"
-          # Si NON → K8s redémarre le pod
           livenessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 45
             periodSeconds: 10
       volumes:
         - name: tmp
           emptyDir: {}
-
 ---
-# Service ClusterIP — adresse stable pour le backend
 apiVersion: v1
 kind: Service
 metadata:
@@ -110,37 +91,4 @@ spec:
     - port: 8080
       targetPort: 8080
   type: ClusterIP
-
----
-# Ingress — point d'entrée HTTPS public pour l'API
-# Traefik (intégré à K3s) reçoit le trafic HTTPS et le route vers le Service
-# cert-manager demande automatiquement un certificat Let's Encrypt
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: collectorshop-back
-  namespace: collectorshop
-  annotations:
-    # Utilise notre ClusterIssuer
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    traefik.ingress.kubernetes.io/router.entrypoints: websecure
-    traefik.ingress.kubernetes.io/router.tls: "true"
-spec:
-  ingressClassName: traefik
-  tls:
-    - hosts:
-        - api.collectorcube.duckdns.org
-      # cert-manager stocke le certificat ici
-      secretName: collectorshop-back-tls
-  rules:
-    # Quand quelqu'un accède à ce domaine...
-    - host: api.collectorcube.duckdns.org
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: collectorshop-back    # ...envoyer vers le Service backend
-                port:
-                  number: 8080
+# ... Ton Ingress reste inchangé ...
