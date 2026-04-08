@@ -45,7 +45,7 @@ spec:
       containers:
         - name: mssql
           image: mcr.microsoft.com/mssql/server:2022-latest
-          # Le securityContext au niveau du conteneur a été allégé 
+          # Le securityContext au niveau du conteneur a été allégé
           # pour permettre à MSSQL de s'exécuter correctement.
           ports:
             - containerPort: 1433
@@ -63,10 +63,10 @@ spec:
                   name: mssql-secret
                   key: sa-password
           resources:
-            requests:              
+            requests:
               memory: "2Gi"        # Minimum vital pour MSSQL
               cpu: "500m"
-            limits:                
+            limits:
               memory: "2Gi"        # Empêche MSSQL de dépasser cette limite
               cpu: "1000m"
       volumes:
@@ -75,7 +75,7 @@ spec:
             claimName: mssql-data
         - name: mssql-tmp
           emptyDir: {}
-          
+
 ---
 # Service — adresse stable pour trouver SQL Server
 # Le backend utilise "Server=mssql" dans sa connection string
