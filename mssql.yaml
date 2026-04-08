@@ -30,12 +30,12 @@ spec:
   selector:
     matchLabels:
       app: mssql
-    annotations:
-      trivy.aquasecurity.github.io/ignore-vuln: "KSV-0001"
   template:
     metadata:
       labels:
         app: mssql
+    annotations:
+      trivy.aquasecurity.github.io/ignore-vuln: "KSV-0001"
     spec:
       securityContext:
         runAsNonRoot: true
