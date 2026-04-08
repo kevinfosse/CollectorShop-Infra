@@ -57,21 +57,21 @@ spec:
                   key: password
           resources:
             requests:
-              memory: "128Mi"
-              cpu: "100m"
-            limits:
               memory: "256Mi"
-              cpu: "200m"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
           # Vérifie que RabbitMQ est prêt à recevoir des connexions
           readinessProbe:
             exec:
               command: ["rabbitmq-diagnostics", "-q", "ping"]
-            initialDelaySeconds: 20
+            initialDelaySeconds: 60
             periodSeconds: 10
           livenessProbe:
             exec:
               command: ["rabbitmq-diagnostics", "-q", "ping"]
-            initialDelaySeconds: 30
+            initialDelaySeconds: 90
             periodSeconds: 15
       volumes:
         - name: rabbitmq-data
