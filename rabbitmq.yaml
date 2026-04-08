@@ -1,0 +1,101 @@
+---
+# =============================================================================
+# RabbitMQ 3.13 — Broker de messages (communication asynchrone)
+# Le backend publie des événements (ProductCreated, PriceChanged...)
+# Le service Notifications consomme ces événements
+# Management UI accessible via port-forward (15672) pour le monitoring
+# =============================================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: collectorshop
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: rabbitmq
+          # Version avec UI de management
+          image: rabbitmq:3.13-management-alpine
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 5672      # Port AMQP (messages)
+            - containerPort: 15672     # Port Management UI (dashboard web)
+          volumeMounts:
+            - name: rabbitmq-data
+              mountPath: /var/lib/rabbitmq
+            - name: rabbitmq-logs
+              mountPath: /var/log/rabbitmq
+            - name: rabbitmq-tmp
+              mountPath: /tmp
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              value: collector
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-secret
+                  key: password
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          # Vérifie que RabbitMQ est prêt à recevoir des connexions
+          readinessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["rabbitmq-diagnostics", "-q", "ping"]
+            initialDelaySeconds: 30
+            periodSeconds: 15
+      volumes:
+        - name: rabbitmq-data
+          emptyDir: {}
+        - name: rabbitmq-logs
+          emptyDir: {}
+        - name: rabbitmq-tmp
+          emptyDir: {}
+
+---
+# Service — les autres pods utilisent "rabbitmq" comme hostname
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: collectorshop
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+    - name: management
+      port: 15672
+      targetPort: 15672
+  type: ClusterIP

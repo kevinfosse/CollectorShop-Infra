@@ -1,0 +1,27 @@
+---
+# =============================================================================
+# HPA — Horizontal Pod Autoscaler pour le backend
+# Surveille l'utilisation CPU du backend
+# Si CPU > 70% -> cree plus de pods (jusqu'a 3 max)
+# Si CPU redescend → supprime les pods en trop (minimum 1)
+# =============================================================================
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: collectorshop-back-hpa
+  namespace: collectorshop
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: collectorshop-back        # Cible le Deployment du backend
+  minReplicas: 1                     # Minimum 1 pod
+  maxReplicas: 3                     # Maximum 3 pods
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70     # Seuil de declenchement: 70% CPU moyen

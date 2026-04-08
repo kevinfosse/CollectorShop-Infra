@@ -1,0 +1,97 @@
+---
+# =============================================================================
+# SQL Server 2022 — Base de donnees relationnelle
+# PVC : stockage persistant pour survivre aux redemarrages
+# Service ClusterIP : accessible seulement depuis le cluster (port 1433)
+# =============================================================================
+
+# Volume persistant — les données SQL Server sont stockées ici
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mssql-data
+  namespace: collectorshop
+spec:
+  accessModes:
+    - ReadWriteOnce        # Un seul pod peut écrire à la fois
+  resources:
+    requests:
+      storage: 5Gi         # 5 Go pour la BDD
+
+---
+# Deployment SQL Server
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mssql
+  namespace: collectorshop
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mssql
+  template:
+    metadata:
+      labels:
+        app: mssql
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mssql
+          image: mcr.microsoft.com/mssql/server:2022-latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 1433
+          volumeMounts:
+            - name: mssql-storage
+              # Dossier ou SQL Server stocke ses donnees
+              mountPath: /var/opt/mssql
+            - name: mssql-tmp
+              mountPath: /tmp
+          env:
+            - name: ACCEPT_EULA
+              value: "Y"
+            - name: MSSQL_SA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mssql-secret
+                  key: sa-password
+          resources:
+            requests:              # Minimum garanti
+              memory: "512Mi"
+              cpu: "200m"
+            limits:                # Maximum autorisé
+              memory: "1Gi"
+              cpu: "500m"
+      volumes:
+        - name: mssql-storage
+          persistentVolumeClaim:
+            claimName: mssql-data
+        - name: mssql-tmp
+          emptyDir: {}
+
+---
+# Service — adresse stable pour trouver SQL Server
+# Le backend utilise "Server=mssql" dans sa connection string
+apiVersion: v1
+kind: Service
+metadata:
+  name: mssql
+  namespace: collectorshop
+spec:
+  selector:
+    app: mssql             # Route vers les pods avec label app=mssql
+  ports:
+    - port: 1433
+      targetPort: 1433
+  type: ClusterIP          # Accessible uniquement depuis le cluster
