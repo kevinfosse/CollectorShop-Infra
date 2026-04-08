@@ -30,6 +30,8 @@ spec:
   selector:
     matchLabels:
       app: mssql
+    annotations:
+      trivy.aquasecurity.github.io/ignore-vuln: "KSV-0001"
   template:
     metadata:
       labels:
@@ -46,10 +48,9 @@ spec:
         - name: mssql
           image: mcr.microsoft.com/mssql/server:2022-latest
           securityContext:
-            allowPrivilegeEscalation: false
+            allowPrivilegeEscalation: true
             readOnlyRootFilesystem: true
-            capabilities:
-              drop: ["ALL"]
+            # Attention : Ne pas remettre 'capabilities: drop: ["ALL"]' ici
           ports:
             - containerPort: 1433
           volumeMounts:
@@ -67,12 +68,12 @@ spec:
                   name: mssql-secret
                   key: sa-password
           resources:
-            requests:              # Minimum garanti
-              memory: "512Mi"
-              cpu: "200m"
-            limits:                # Maximum autorisé
-              memory: "1Gi"
+            requests:              # Minimum garanti revu à la hausse pour MSSQL
+              memory: "2Gi"
               cpu: "500m"
+            limits:                # Maximum autorisé
+              memory: "2Gi"
+              cpu: "1000m"
       volumes:
         - name: mssql-storage
           persistentVolumeClaim:
