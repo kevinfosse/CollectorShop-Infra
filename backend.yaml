@@ -58,7 +58,7 @@ spec:
             - name: ConnectionStrings__DefaultConnection
               value: >-
                 Server=mssql;Database=CollectorShop;User
-                Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
+                Id=sa;Password=$(MSSQL_SA_PASSWORD);TrustServerCertificate=True
             # RabbitMQ : "rabbitmq" est le nom du Service K8s RabbitMQ
             - name: RabbitMQ__Host
               value: "rabbitmq"
