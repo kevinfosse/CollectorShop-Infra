@@ -1,6 +1,8 @@
+---
 # =============================================================================
 # Configuration NGINX pour Angular (Port 8080 + Routage SPA)
-# Indispensable pour éviter que NGINX ne tente de bind le port 80 (interdit sans root)
+# Indispensable pour eviter que NGINX ne tente de bind le port 80
+# (interdit sans root)
 # =============================================================================
 apiVersion: v1
 kind: ConfigMap
@@ -16,8 +18,9 @@ data:
         location / {
             root   /usr/share/nginx/html;
             index  index.html index.htm;
-            # Crucial pour Angular : redirige toutes les requêtes vers index.html
-            try_files $uri $uri/ /index.html; 
+            # Crucial pour Angular : redirige toutes les requetes
+            # vers index.html
+            try_files $uri $uri/ /index.html;
         }
 
         error_page   500 502 503 504  /50x.html;

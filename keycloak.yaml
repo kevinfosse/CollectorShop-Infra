@@ -1,3 +1,4 @@
+---
 # =============================================================================
 # Serveur d'Authentification Keycloak (Mode Dev pour POC)
 # =============================================================================
@@ -20,7 +21,7 @@ spec:
         - name: keycloak
           # On utilise la version moderne de Keycloak (basée sur Quarkus)
           image: quay.io/keycloak/keycloak:24.0.2
-          args: ["start-dev"] 
+          args: ["start-dev"]
           env:
             # Identifiants de l'administrateur suprême (à changer si tu veux)
             - name: KEYCLOAK_ADMIN
