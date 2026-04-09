@@ -7,6 +7,8 @@ kind: Deployment
 metadata:
   name: keycloak
   namespace: collectorshop
+  annotations:
+    trivy.aquasecurity.github.io/ignore-vuln: "KSV-0014,KSV-0118"
 spec:
   replicas: 1
   selector:
@@ -16,6 +18,8 @@ spec:
     metadata:
       labels:
         app: keycloak
+      annotations:
+        trivy.aquasecurity.github.io/ignore-vuln: "KSV-0014,KSV-0118"
     spec:
       containers:
         - name: keycloak

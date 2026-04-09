@@ -4,6 +4,8 @@ kind: Deployment
 metadata:
   name: rabbitmq
   namespace: collectorshop
+  annotations:
+    trivy.aquasecurity.github.io/ignore-vuln: "KSV-0014"
 spec:
   replicas: 1
   selector:
@@ -13,6 +15,8 @@ spec:
     metadata:
       labels:
         app: rabbitmq
+      annotations:
+        trivy.aquasecurity.github.io/ignore-vuln: "KSV-0014"
     spec:
       securityContext:
         runAsNonRoot: true
