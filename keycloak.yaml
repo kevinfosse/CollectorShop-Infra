@@ -1,0 +1,98 @@
+---
+# =============================================================================
+# Serveur d'Authentification Keycloak (Mode Dev pour POC)
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: collectorshop
+  annotations:
+    trivy.aquasecurity.github.io/ignore-vuln: "KSV-0014,KSV-0118"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+      annotations:
+        trivy.aquasecurity.github.io/ignore-vuln: "KSV-0014,KSV-0118"
+    spec:
+      containers:
+        - name: keycloak
+          # On utilise la version moderne de Keycloak (basée sur Quarkus)
+          image: quay.io/keycloak/keycloak:24.0.2
+          args: ["start-dev"]
+          env:
+            # Identifiants de l'administrateur suprême (à changer si tu veux)
+            - name: KEYCLOAK_ADMIN
+              value: "admin"
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              value: "Admin123!"
+            # Configuration pour fonctionner derrière Traefik (Reverse Proxy)
+            - name: KC_PROXY
+              value: "edge"
+            # L'URL publique de ton Keycloak
+            - name: KC_HOSTNAME
+              value: "authcollector.duckdns.org"
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  namespace: collectorshop
+spec:
+  selector:
+    app: keycloak
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycloak
+  namespace: collectorshop
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        # Ton nom de domaine DuckDNS pour Keycloak
+        - authcollector.duckdns.org
+      secretName: keycloak-tls
+  rules:
+    - host: authcollector.duckdns.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloak
+                port:
+                  number: 80

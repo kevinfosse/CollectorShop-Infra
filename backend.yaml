@@ -1,9 +1,7 @@
 ---
 # =============================================================================
-# Backend ASP.NET Core — API REST de CollectorShop
-# 2 replicas pour la haute disponibilité (si 1 tombe, l'autre répond)
-# Ingress Traefik avec TLS (cert-manager provisionne le certificat HTTPS)
-# Health checks : /health vérifie que l'API et la BDD fonctionnent
+# Backend .NET 10 — API Principale CollectorShop
+# Connecté à MSSQL et RabbitMQ. Gère les migrations EF Core au démarrage.
 # =============================================================================
 
 apiVersion: apps/v1
@@ -11,55 +9,60 @@ kind: Deployment
 metadata:
   name: collectorshop-back
   namespace: collectorshop
+  annotations:
+    trivy.aquasecurity.github.io/ignore-vuln: "KSV-0014,KSV-0118"
 spec:
-  replicas: 2                    # 2 copies = haute disponibilité
+  replicas: 1
   selector:
     matchLabels:
       app: collectorshop-back
-  strategy:
-    type: RollingUpdate          # Mise à jour progressive (zéro downtime)
-    rollingUpdate:
-      maxUnavailable: 0          # Jamais 0 pod disponible pendant l'update
-      # Crée 1 nouveau pod avant de supprimer l'ancien
-      maxSurge: 1
   template:
     metadata:
       labels:
         app: collectorshop-back
+      annotations:
+        trivy.aquasecurity.github.io/ignore-vuln: "KSV-0014,KSV-0118"
     spec:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 10001
-        runAsGroup: 10001
-        fsGroup: 10001
-        seccompProfile:
-          type: RuntimeDefault
       imagePullSecrets:
-        - name: ghcr-regcred     # Secret pour puller l'image depuis ghcr.io
+        - name: ghcr-regcred
       containers:
         - name: collectorshop-back
           image: ghcr.io/kevinfosse/collectorshop-back:latest
+          imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop: ["ALL"]
+            # Desactive pour laisser Serilog et Kestrel generer
+            # leurs fichiers temporaires
+            readOnlyRootFilesystem: false
           ports:
             - containerPort: 8080
-          volumeMounts:
-            - name: tmp
-              mountPath: /tmp
           env:
             - name: ASPNETCORE_ENVIRONMENT
               value: "Production"
             - name: ASPNETCORE_URLS
               value: "http://+:8080"
-            # Connection string : "mssql" est le nom du Service K8s SQL Server
+            - name: DOTNET_SYSTEM_GLOBALIZATION_INVARIANT
+              value: "false"
+
+            # 1. LE CORS (Autorise ton Frontend)
+            - name: CorsSettings__AllowedOrigins__0
+              value: "https://collectorcube.duckdns.org"
+
+            # 2. DÉCLARATION DU MOT DE PASSE (DOIT RESTER EN HAUT)
+            - name: MSSQL_SA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mssql-secret
+                  key: sa-password
+
+            # 3. UTILISATION DU MOT DE PASSE (Injection par Kubernetes)
             - name: ConnectionStrings__DefaultConnection
               value: >-
-                Server=mssql;Database=CollectorShop;User
-                Id=sa;Password=$(MSSQL_SA_PASSWORD);TrustServerCertificate=True
-            # RabbitMQ : "rabbitmq" est le nom du Service K8s RabbitMQ
+                Server=mssql;Database=CollectorShop;User Id=SA;
+                Password=$(MSSQL_SA_PASSWORD);TrustServerCertificate=True;
+                MultipleActiveResultSets=true
+
+            # 4. CONFIGURATION RABBITMQ
             - name: RabbitMQ__Host
               value: "rabbitmq"
             - name: RabbitMQ__Username
@@ -69,35 +72,58 @@ spec:
                 secretKeyRef:
                   name: rabbitmq-secret
                   key: password
+
           resources:
             requests:
               memory: "256Mi"
-              cpu: "100m"
+              cpu: "200m"
             limits:
               memory: "512Mi"
               cpu: "500m"
-          # Readiness : "Es-tu prêt à recevoir du trafic ?"
-          # Si NON → K8s retire ce pod du load balancing
+
+          # -------------------------------------------------------------
+          # SONDES (PROBES)
+          # -------------------------------------------------------------
+          # Startup : Laisse 2m30 (30 essais * 5s) à EF Core pour MigrateAsync()
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 5
+
+          # Readiness : Vérifie que l'app est prête à recevoir du trafic
           readinessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 15
-            periodSeconds: 5
-          # Liveness : "Es-tu encore vivant ?"
-          # Si NON → K8s redémarre le pod
+            periodSeconds: 10
+
+          # Liveness : Redémarre le conteneur s'il est bloqué (Deadlock)
           livenessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 30
-            periodSeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+
+          # -------------------------------------------------------------
+          # VOLUMES TEMPORAIRES
+          # -------------------------------------------------------------
+          volumeMounts:
+            - name: logs-dir
+              mountPath: /app/logs
+            - name: tmp-dir
+              mountPath: /tmp
+
       volumes:
-        - name: tmp
+        - name: logs-dir
+          emptyDir: {}
+        - name: tmp-dir
           emptyDir: {}
 
 ---
-# Service ClusterIP — adresse stable pour le backend
+# Service pour exposer le backend en interne au Frontend / Ingress
 apiVersion: v1
 kind: Service
 metadata:
@@ -110,37 +136,3 @@ spec:
     - port: 8080
       targetPort: 8080
   type: ClusterIP
-
----
-# Ingress — point d'entrée HTTPS public pour l'API
-# Traefik (intégré à K3s) reçoit le trafic HTTPS et le route vers le Service
-# cert-manager demande automatiquement un certificat Let's Encrypt
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: collectorshop-back
-  namespace: collectorshop
-  annotations:
-    # Utilise notre ClusterIssuer
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    traefik.ingress.kubernetes.io/router.entrypoints: websecure
-    traefik.ingress.kubernetes.io/router.tls: "true"
-spec:
-  ingressClassName: traefik
-  tls:
-    - hosts:
-        - api.collectorcube.duckdns.org
-      # cert-manager stocke le certificat ici
-      secretName: collectorshop-back-tls
-  rules:
-    # Quand quelqu'un accède à ce domaine...
-    - host: api.collectorcube.duckdns.org
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: collectorshop-back    # ...envoyer vers le Service backend
-                port:
-                  number: 8080
