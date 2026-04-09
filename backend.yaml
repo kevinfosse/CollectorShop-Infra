@@ -1,10 +1,15 @@
+# =============================================================================
+# Backend .NET 10 — API Principale CollectorShop
+# Connecté à MSSQL et RabbitMQ. Gère les migrations EF Core au démarrage.
+# =============================================================================
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: collectorshop-back
   namespace: collectorshop
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: collectorshop-back
@@ -13,40 +18,42 @@ spec:
       labels:
         app: collectorshop-back
     spec:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 10001
-        runAsGroup: 10001
-        fsGroup: 10001
       imagePullSecrets:
         - name: ghcr-regcred
       containers:
         - name: collectorshop-back
           image: ghcr.io/kevinfosse/collectorshop-back:latest
+          imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop: ["ALL"]
+            # Désactivé pour laisser Serilog et Kestrel générer leurs fichiers temporaires
+            readOnlyRootFilesystem: false 
           ports:
             - containerPort: 8080
-          volumeMounts:
-            - name: tmp
-              mountPath: /tmp
           env:
             - name: ASPNETCORE_ENVIRONMENT
               value: "Production"
             - name: ASPNETCORE_URLS
               value: "http://+:8080"
+            - name: DOTNET_SYSTEM_GLOBALIZATION_INVARIANT
+              value: "false"
+
+            # 1. LE CORS (Autorise ton Frontend)
+            - name: CorsSettings__AllowedOrigins__0
+              value: "https://collectorcube.duckdns.org"
+              
+            # 2. DÉCLARATION DU MOT DE PASSE (DOIT RESTER EN HAUT)
             - name: MSSQL_SA_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: mssql-secret
                   key: sa-password
-            
+                  
+            # 3. UTILISATION DU MOT DE PASSE (Injection par Kubernetes)
             - name: ConnectionStrings__DefaultConnection
-              value: "Server=mssql;Database=CollectorShop;User Id=sa;Password=$(MSSQL_SA_PASSWORD);TrustServerCertificate=True"
-            
+              value: "Server=mssql;Database=CollectorShop;User Id=SA;Password=$(MSSQL_SA_PASSWORD);TrustServerCertificate=True;MultipleActiveResultSets=true"
+              
+            # 4. CONFIGURATION RABBITMQ
             - name: RabbitMQ__Host
               value: "rabbitmq"
             - name: RabbitMQ__Username
@@ -56,29 +63,58 @@ spec:
                 secretKeyRef:
                   name: rabbitmq-secret
                   key: password
+          
           resources:
             requests:
               memory: "256Mi"
-              cpu: "100m"
+              cpu: "200m"
             limits:
               memory: "512Mi"
               cpu: "500m"
+
+          # -------------------------------------------------------------
+          # SONDES (PROBES)
+          # -------------------------------------------------------------
+          # Startup : Laisse 2m30 (30 essais * 5s) à EF Core pour MigrateAsync()
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 5
+            
+          # Readiness : Vérifie que l'app est prête à recevoir du trafic
           readinessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 20 # Laissé un peu de temps au démarrage .NET
-            periodSeconds: 5
+            periodSeconds: 10
+            
+          # Liveness : Redémarre le conteneur s'il est bloqué (Deadlock)
           livenessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 45
-            periodSeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+          
+          # -------------------------------------------------------------
+          # VOLUMES TEMPORAIRES
+          # -------------------------------------------------------------
+          volumeMounts:
+            - name: logs-dir
+              mountPath: /app/logs
+            - name: tmp-dir
+              mountPath: /tmp
+      
       volumes:
-        - name: tmp
+        - name: logs-dir
           emptyDir: {}
+        - name: tmp-dir
+          emptyDir: {}
+
 ---
+# Service pour exposer le backend en interne au Frontend / Ingress
 apiVersion: v1
 kind: Service
 metadata:
@@ -91,4 +127,3 @@ spec:
     - port: 8080
       targetPort: 8080
   type: ClusterIP
-# ... Ton Ingress reste inchangé ...
