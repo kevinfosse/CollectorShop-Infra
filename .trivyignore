@@ -1,0 +1,6 @@
+# Trivy misconfiguration bypass (Kubernetes)
+# Format accepte par trivy config
+AVD-KSV-0014
+AVD-KSV-0118
+KSV-0014
+KSV-0118
