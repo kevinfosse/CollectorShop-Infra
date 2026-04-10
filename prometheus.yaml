@@ -90,6 +90,49 @@ spec:
             limits:
               memory: '512Mi'
               cpu: '500m'
+        - name: oauth2-proxy
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.5.1
+          ports:
+            - containerPort: 4180
+          args:
+            - --http-address=0.0.0.0:4180
+            - --provider=oidc
+            - >-
+              --oidc-issuer-url=https://authcollector.duckdns.org/realms/
+              CollectorShop
+            - --client-id=monitoring-client
+            - --client-secret=$(OAUTH2_PROXY_CLIENT_SECRET)
+            - --cookie-secret=$(OAUTH2_PROXY_COOKIE_SECRET)
+            - --cookie-secure=true
+            - --email-domain=*
+            - --upstream=http://127.0.0.1:9090
+            - >-
+              --redirect-url=https://prom.collectorcube.duckdns.org/
+              oauth2/callback
+            - >-
+              --login-url=https://authcollector.duckdns.org/realms/
+              CollectorShop/protocol/openid-connect/auth
+            - >-
+              --redeem-url=https://authcollector.duckdns.org/realms/
+              CollectorShop/protocol/openid-connect/token
+            - >-
+              --oidc-jwks-url=https://authcollector.duckdns.org/realms/
+              CollectorShop/protocol/openid-connect/certs
+            - >-
+              --validate-url=https://authcollector.duckdns.org/realms/
+              CollectorShop/protocol/openid-connect/userinfo
+            - --scope=openid profile email roles
+          env:
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: prometheus-oauth2-proxy-secret
+                  key: client-secret
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: prometheus-oauth2-proxy-secret
+                  key: cookie-secret
       volumes:
         - name: config
           configMap:
@@ -107,7 +150,7 @@ spec:
     app: prometheus
   ports:
     - port: 9090
-      targetPort: 9090
+      targetPort: 4180
   type: ClusterIP
 ---
 apiVersion: v1
@@ -152,8 +195,6 @@ metadata:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: 'true'
-    traefik.ingress.kubernetes.io/router.middlewares: >-
-      monitoring-vpn-whitelist@kubernetescrd
 spec:
   ingressClassName: traefik
   tls:
