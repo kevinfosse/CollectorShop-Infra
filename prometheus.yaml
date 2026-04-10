@@ -53,16 +53,18 @@ spec:
         - name: oauth2-proxy
           image: quay.io/oauth2-proxy/oauth2-proxy:v7.5.1
           args:
-            - --provider=keycloak-oidc
+            - --http-address=0.0.0.0:4180
+            - --provider=oidc
+            - --oidc-issuer-url=https://authcollector.duckdns.org/realms/CollectorShop
+            - --insecure-oidc-skip-issuer-verification=true
+            - --client-id=monitoring-client
+            - --client-secret=$(OAUTH2_PROXY_CLIENT_SECRET)
+            - --cookie-secret=$(OAUTH2_PROXY_COOKIE_SECRET)
+            - --cookie-secure=true
             - --email-domain=*
             - --upstream=http://127.0.0.1:9090
-            - --http-address=0.0.0.0:4180
-            - >-
-              --oidc-issuer-url=https://authcollector.duckdns.org/realms/CollectorShop
-            - >-
-              --redirect-url=https://prom.collectorcube.duckdns.org/oauth2/callback
+            - --redirect-url=https://prom.collectorcube.duckdns.org/oauth2/callback
             - --reverse-proxy=true
-            - --cookie-secure=true
           env:
             - name: OAUTH2_PROXY_CLIENT_ID
               value: monitoring-client
