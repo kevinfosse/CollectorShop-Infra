@@ -10,12 +10,10 @@ data:
     datasources:
       - name: Prometheus
         type: prometheus
-        access: proxy
         url: http://prometheus:9090
         isDefault: true
       - name: Loki
         type: loki
-        access: proxy
         url: http://loki:3100
 ---
 apiVersion: apps/v1
@@ -49,8 +47,10 @@ spec:
                 secretKeyRef:
                   name: grafana-secret
                   key: admin-password
+            - name: GF_SERVER_ROOT_URL
+              value: https://grafana.collectorcube.duckdns.org
             - name: GF_AUTH_GENERIC_OAUTH_ENABLED
-              value: 'true'
+              value: "true"
             - name: GF_AUTH_GENERIC_OAUTH_CLIENT_ID
               value: monitoring-client
             - name: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
@@ -59,33 +59,23 @@ spec:
                   name: grafana-secret
                   key: oauth-client-secret
             - name: GF_AUTH_GENERIC_OAUTH_SCOPES
-              value: openid profile email roles
+              value: "openid profile email roles"
             - name: GF_AUTH_GENERIC_OAUTH_AUTH_URL
-              value: "https://authcollector.duckdns.org/realms/CollectorShop/\
-                protocol/openid-connect/auth"
+              value: >-
+                https://authcollector.duckdns.org/realms/CollectorShop/protocol/openid-connect/auth
             - name: GF_AUTH_GENERIC_OAUTH_TOKEN_URL
               value: >-
-                https://authcollector.duckdns.org/realms/CollectorShop/protocol/
-                openid-connect/token
+                https://authcollector.duckdns.org/realms/CollectorShop/protocol/openid-connect/token
             - name: GF_AUTH_GENERIC_OAUTH_API_URL
               value: >-
-                https://authcollector.duckdns.org/realms/CollectorShop/protocol/
-                openid-connect/userinfo
+                https://authcollector.duckdns.org/realms/CollectorShop/protocol/openid-connect/userinfo
             - name: GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH
-              value: >-
-                contains(roles[*], 'Admin') && 'Admin' || 'Viewer'
+              value: "contains(roles[*], 'Admin') && 'Admin' || 'Viewer'"
           volumeMounts:
             - name: datasources
               mountPath: /etc/grafana/provisioning/datasources
             - name: data
               mountPath: /var/lib/grafana
-          resources:
-            requests:
-              memory: '128Mi'
-              cpu: '50m'
-            limits:
-              memory: '256Mi'
-              cpu: '200m'
       volumes:
         - name: datasources
           configMap:
@@ -104,7 +94,6 @@ spec:
   ports:
     - port: 3000
       targetPort: 3000
-  type: ClusterIP
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -114,7 +103,7 @@ metadata:
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
-    traefik.ingress.kubernetes.io/router.tls: 'true'
+    traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   ingressClassName: traefik
   tls:
