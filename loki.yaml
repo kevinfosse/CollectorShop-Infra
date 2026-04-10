@@ -67,13 +67,14 @@ spec:
           args:
             - --http-address=0.0.0.0:4180
             - --provider=keycloak-oidc
-            - --oidc-issuer-url=https://authcollector.duckdns.org/realms/CollectorShop
             - --client-id=monitoring-client
             - --email-domain=*
             - --upstream=http://127.0.0.1:3100
             - --redirect-url=https://loki.collectorcube.duckdns.org/oauth2/callback
-            - --cookie-secure=true
+            - --oidc-issuer-url=https://authcollector.duckdns.org/realms/CollectorShop
             - --reverse-proxy=true
+            - --cookie-secure=true
+            - --insecure-oidc-skip-issuer-verification=true # <-- AJOUTÉ ICI
           env:
             - name: OAUTH2_PROXY_CLIENT_SECRET
               valueFrom:
@@ -92,6 +93,7 @@ spec:
         - name: data
           emptyDir: {}
 ---
+# SERVICE PUBLIC (Protégé par OIDC)
 apiVersion: v1
 kind: Service
 metadata:
@@ -101,8 +103,23 @@ spec:
   selector:
     app: loki
   ports:
-    - port: 3100
+    - name: proxy
+      port: 3100
       targetPort: 4180
+---
+# SERVICE INTERNE (Direct pour Grafana)
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki-internal
+  namespace: monitoring
+spec:
+  selector:
+    app: loki
+  ports:
+    - name: direct
+      port: 3100
+      targetPort: 3100
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
