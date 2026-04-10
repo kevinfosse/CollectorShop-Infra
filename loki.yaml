@@ -119,4 +119,3 @@ spec:
                 name: loki
                 port:
                   number: 3100
-                  
