@@ -1,3 +1,4 @@
+---
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -6,5 +7,5 @@ metadata:
 spec:
   ipWhiteList:
     sourceRange:
-      - 10.0.0.0/24   # Autorise tout ton réseau VPN WireGuard
-      - 127.0.0.1/32  # Autorise le localhost (utile pour le debug interne)
+      - 10.0.0.0/24
+      - 127.0.0.1/32
