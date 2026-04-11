@@ -4,3 +4,13 @@ AVD-KSV-0014
 AVD-KSV-0118
 KSV-0014
 KSV-0118
+
+# Node Exporter hardening exceptions (required host-level access)
+AVD-KSV-0009
+AVD-KSV-0010
+AVD-KSV-0024
+AVD-KSV-0121
+KSV-0009
+KSV-0010
+KSV-0024
+KSV-0121
