@@ -14,3 +14,7 @@ KSV-0009
 KSV-0010
 KSV-0024
 KSV-0121
+
+# Promtail RBAC exception (node proxy access required)
+AVD-KSV-0047
+KSV-0047
