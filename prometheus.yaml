@@ -20,6 +20,9 @@ data:
       - job_name: 'traefik'
         static_configs:
           - targets: ['traefik.kube-system.svc:9100']
+      - job_name: 'node-exporter'
+        static_configs:
+          - targets: ['node-exporter.monitoring.svc:9100']
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -96,6 +99,19 @@ spec:
   ports:
     - port: 9090
       targetPort: 4180
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-internal
+  namespace: monitoring
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - name: direct
+      port: 9090
+      targetPort: 9090
 ---
 apiVersion: v1
 kind: ServiceAccount
