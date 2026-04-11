@@ -16,6 +16,8 @@ data:
       - job_name: kubernetes-pods
         kubernetes_sd_configs:
           - role: pod
+        pipeline_stages:
+          - cri: {}
         relabel_configs:
           - source_labels: [__meta_kubernetes_pod_node_name]
             target_label: node
@@ -27,6 +29,12 @@ data:
             target_label: container
           - source_labels: [__meta_kubernetes_pod_label_app]
             target_label: app
+          - replacement: /var/log/pods/*$1/*.log
+            separator: /
+            source_labels:
+              - __meta_kubernetes_pod_uid
+              - __meta_kubernetes_pod_container_name
+            target_label: __path__
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -56,9 +64,6 @@ spec:
             - name: varlog
               mountPath: /var/log
               readOnly: true
-            - name: pods
-              mountPath: /var/log/pods
-              readOnly: true
           resources:
             limits:
               cpu: 200m
@@ -76,9 +81,6 @@ spec:
         - name: varlog
           hostPath:
             path: /var/log
-        - name: pods
-          hostPath:
-            path: /var/log/pods
 ---
 apiVersion: v1
 kind: ServiceAccount
